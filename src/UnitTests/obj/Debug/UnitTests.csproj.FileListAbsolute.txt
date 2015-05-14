@@ -1,0 +1,9 @@
+C:\Git\SqlMigrator\src\UnitTests\bin\Debug\UnitTests.dll
+C:\Git\SqlMigrator\src\UnitTests\bin\Debug\UnitTests.pdb
+C:\Git\SqlMigrator\src\UnitTests\bin\Debug\nunit.framework.dll
+C:\Git\SqlMigrator\src\UnitTests\bin\Debug\nunit.framework.xml
+C:\Git\SqlMigrator\src\UnitTests\obj\Debug\UnitTests.csprojResolveAssemblyReference.cache
+C:\Git\SqlMigrator\src\UnitTests\obj\Debug\UnitTests.dll
+C:\Git\SqlMigrator\src\UnitTests\obj\Debug\UnitTests.pdb
+C:\Git\SqlMigrator\src\UnitTests\bin\Debug\SqlMigrator.dll
+C:\Git\SqlMigrator\src\UnitTests\bin\Debug\SqlMigrator.pdb

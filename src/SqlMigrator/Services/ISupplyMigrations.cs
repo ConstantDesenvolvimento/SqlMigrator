@@ -7,5 +7,6 @@ namespace SqlMigrator.Services
     public interface ISupplyMigrations
     {
         Task<IEnumerable<Migration>> LoadMigrations();
+        
     }
 }

@@ -5,6 +5,10 @@ VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlMigrator", "SqlMigrator\SqlMigrator.csproj", "{47DC7891-A632-468E-A5F5-FF8C04EBFF90}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTests", "UnitTests\UnitTests.csproj", "{4727A9C9-DCD4-4089-BA57-74E0ADB99926}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{D1E0FE97-F5A6-48E7-B675-DC1BD452684C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,8 +19,15 @@ Global
 		{47DC7891-A632-468E-A5F5-FF8C04EBFF90}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{47DC7891-A632-468E-A5F5-FF8C04EBFF90}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{47DC7891-A632-468E-A5F5-FF8C04EBFF90}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4727A9C9-DCD4-4089-BA57-74E0ADB99926}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4727A9C9-DCD4-4089-BA57-74E0ADB99926}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4727A9C9-DCD4-4089-BA57-74E0ADB99926}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4727A9C9-DCD4-4089-BA57-74E0ADB99926}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4727A9C9-DCD4-4089-BA57-74E0ADB99926} = {D1E0FE97-F5A6-48E7-B675-DC1BD452684C}
 	EndGlobalSection
 EndGlobal
