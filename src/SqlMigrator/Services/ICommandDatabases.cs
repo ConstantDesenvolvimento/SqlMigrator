@@ -3,9 +3,9 @@ using SqlMigrator.Model;
 
 namespace SqlMigrator.Services
 {
-    public interface IManipulateDatabases
+    public interface ICommandDatabases
     {
-        Task Create();
+        Task<string> Create();
         Task ExecuteMigration(Migration migration);
         Task<DatabaseVersion> CurrentVersion();
     }

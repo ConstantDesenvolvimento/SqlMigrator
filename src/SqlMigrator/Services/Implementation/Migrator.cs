@@ -8,10 +8,10 @@ namespace SqlMigrator.Services.Implementation
     public class Migrator : IMigrateDatabases
     {
         private readonly ICompareMigrations _comparer;
-        private readonly IManipulateDatabases _handler;
+        private readonly ICommandDatabases _handler;
         private readonly ISupplyMigrations _source;
 
-        public Migrator(ISupplyMigrations source, ICompareMigrations comparer, IManipulateDatabases handler)
+        public Migrator(ISupplyMigrations source, ICompareMigrations comparer, ICommandDatabases handler)
         {
             _source = source;
             _comparer = comparer;
