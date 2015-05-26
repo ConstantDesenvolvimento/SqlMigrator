@@ -2,6 +2,7 @@
 using System.Data;
 using System.Data.SqlClient;
 using NUnit.Framework;
+using SqlMigrator.Model;
 using SqlMigrator.Services.Databases;
 using SqlMigrator.Services.Databases.SqlServer;
 
@@ -49,6 +50,56 @@ namespace Integration
             }
         }
 
+        [Test]
+        public async void current_version_returns_not_created()
+        {
+            var sqlserver = new SqlServerCommander(CreateConnection);
+            var version = await sqlserver.CurrentVersion();
+            Assert.AreEqual(DatabaseVersionType.NotCreated, version.Type);
+        }
+
+        [Test]
+        public async void execute_migration()
+        {
+            var sqlserver = new SqlServerCommander(CreateConnection);
+            database=await sqlserver.Create();
+            await sqlserver.ExecuteMigration(new Migration()
+            {
+                Number = "20150101",
+                Sql = "create table test (id int primary key clustered)"
+            });
+
+            using (IDbConnection connection = CreateConnection())
+            {
+                connection.Open();
+                using (IDbCommand cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = string.Format("select count(*) from {0}.sys.tables where name='test'", database);
+                    object result = cmd.ExecuteScalar();
+                    Assert.AreEqual(1, result);
+                }
+            }
+        }
+        [Test]
+        public async void get_correct_version_number()
+        {
+            var sqlserver = new SqlServerCommander(CreateConnection);
+            database = await sqlserver.Create();
+            await sqlserver.ExecuteMigration(new Migration()
+            {
+                Number = "20150101",
+                Sql = "create table test (id int primary key clustered)"
+            });
+            await sqlserver.ExecuteMigration(new Migration()
+            {
+                Number = "20150102",
+                Sql = "create table test2 (id int primary key clustered)"
+            });
+
+            var version = await sqlserver.CurrentVersion();
+            Assert.AreEqual(DatabaseVersionType.VersionNumber, version.Type);
+            Assert.AreEqual("20150102",version.Number);
+        }
         [TearDown]
         public void TearDown()
         {
@@ -59,11 +110,12 @@ namespace Integration
                     connection.Open();
                     using (IDbCommand cmd = connection.CreateCommand())
                     {
-                        cmd.CommandText = string.Format("drop database {0}", database);
+                        cmd.CommandText = string.Format("if exists (select * from sys.databases where name='{0}') drop database {0}", database);
                         cmd.ExecuteNonQuery();
                     }
                 }
             }
         }
+
     }
 }

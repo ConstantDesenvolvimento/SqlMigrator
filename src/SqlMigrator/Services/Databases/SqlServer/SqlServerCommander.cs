@@ -49,12 +49,12 @@ namespace SqlMigrator.Services.Databases.SqlServer
         {
             return Task.Run(() =>
             {
-                RunSql(ApplyTemplate("CreateDatabase", _databaseName));
+                RunSql(ApplyTemplate("CreateDatabase", _databaseName),false);
                 return _databaseName;
             });
         }
 
-        private void RunSql(string sql)
+        private void RunSql(string sql,bool inTransaction=true)
         {
             using (var connection = _connectionFactory())
             {
@@ -62,21 +62,37 @@ namespace SqlMigrator.Services.Databases.SqlServer
                 {
                     connection.Open();
                 }
-                var parts = SqlSplitter.Split(sql);
-                foreach (var part in parts)
+                if (inTransaction)
                 {
-                    if (!string.IsNullOrEmpty(part))
+                    using (var transaction = connection.BeginTransaction())
                     {
-                        using (var cmd = connection.CreateCommand())
-                        {
-                            cmd.CommandText = part;
-                            cmd.ExecuteNonQuery();
-                        } 
+                        ExecuteCommands(sql, connection, transaction);
+                        transaction.Commit();
                     }
-                   
+                }
+                else
+                {
+                    ExecuteCommands(sql, connection, null);
                 }
                
-                    
+               
+            }
+        }
+
+        private static void ExecuteCommands(string sql, IDbConnection connection, IDbTransaction transaction)
+        {
+            var parts = SqlSplitter.Split(sql);
+            foreach (var part in parts)
+            {
+                if (!string.IsNullOrEmpty(part))
+                {
+                    using (var cmd = connection.CreateCommand())
+                    {
+                        cmd.CommandText = part;
+                        cmd.Transaction = transaction;
+                        cmd.ExecuteNonQuery();
+                    }
+                }
             }
         }
 
@@ -130,7 +146,7 @@ namespace SqlMigrator.Services.Databases.SqlServer
             {
                 if (ExecuteScalar<int>(string.Format("select count(*) from {0}.migrations.log where number='{1}'",_databaseName, migration.Number)) == 0)
                 {
-                    RunSql(ApplyTemplate("ExecuteMigration", _databaseName, migration.Sql));    
+                    RunSql(ApplyTemplate("ExecuteMigration", _databaseName, migration.Sql,migration.Number));    
                 }
                 else
                 {
@@ -150,7 +166,7 @@ namespace SqlMigrator.Services.Databases.SqlServer
                     return new DatabaseVersion() { Type = DatabaseVersionType.NotCreated };    
                 }
                 var version =
-                    ExecuteScalar<string>("select top 1 number from {0}.migrations.log order by applied desc ");
+                    ExecuteScalar<string>(string.Format("select top 1 number from {0}.migrations.log order by applied desc ",_databaseName));
                 return new DatabaseVersion() {Type = DatabaseVersionType.VersionNumber, Number = version};
             });
         }
