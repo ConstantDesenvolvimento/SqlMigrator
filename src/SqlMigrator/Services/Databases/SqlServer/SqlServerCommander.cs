@@ -1,16 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.SqlClient;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using SqlMigrator.Logging;
 using SqlMigrator.Model;
 
 namespace SqlMigrator.Services.Databases.SqlServer
 {
     public class SqlServerCommander : ICommandDatabases
     {
+        private static readonly ILog Logger = LogProvider.For<SqlServerCommander>();
         private readonly Func<IDbConnection> _connectionFactory;
         private readonly string _databaseName;
         private static readonly Regex DatabaseFinder = new Regex(
@@ -52,6 +55,11 @@ namespace SqlMigrator.Services.Databases.SqlServer
                 RunSql(ApplyTemplate("CreateDatabase", _databaseName),false);
                 return _databaseName;
             });
+        }
+
+        public Task CreateMigrationHistoryTable()
+        {
+            return Create();
         }
 
         private void RunSql(string sql,bool inTransaction=true)
@@ -150,6 +158,7 @@ namespace SqlMigrator.Services.Databases.SqlServer
                 }
                 else
                 {
+                    Logger.InfoFormat("trying to reapply  migration {migrationNumber} to database {database} ",migration.Number,_databaseName);
                     throw new InvalidOperationException("migration already applied!");
                 }
                 
@@ -161,12 +170,27 @@ namespace SqlMigrator.Services.Databases.SqlServer
         {
             return Task.Run(() =>
             {
-                if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName)) == 0)
+                string version = null;
+                try
                 {
-                    return new DatabaseVersion() { Type = DatabaseVersionType.NotCreated };    
+                    version =
+                   ExecuteScalar<string>(string.Format("select top 1 number from {0}.migrations.log order by applied desc ", _databaseName));
                 }
-                var version =
-                    ExecuteScalar<string>(string.Format("select top 1 number from {0}.migrations.log order by applied desc ",_databaseName));
+                catch (Exception ex)
+                {
+                    Logger.DebugException("got an exception while trying to retrieve the last applied migration number",ex);
+                    if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName)) == 0)
+                    {
+                        return new DatabaseVersion() { Type = DatabaseVersionType.NotCreated };
+                    }
+                    if (ExecuteScalar<int>(string.Format("select count(*) from {0}.sys.tables t inner join  {0}.sys.schemas s on s.schema_id=t.schema_id where t.name='log' and s.name='migrations' ", _databaseName)) == 0)
+                    {
+                        return new DatabaseVersion() { Type = DatabaseVersionType.MissingMigrationHistoryTable };
+                    }
+                }
+                
+               
+               
                 return new DatabaseVersion() {Type = DatabaseVersionType.VersionNumber, Number = version};
             });
         }

@@ -1,4 +1,5 @@
-﻿using System.Configuration;
+﻿using System;
+using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using NUnit.Framework;
@@ -51,11 +52,28 @@ namespace Integration
         }
 
         [Test]
-        public async void current_version_returns_not_created()
+        public async void current_version_returns_not_created_when_there_is_no_database()
         {
             var sqlserver = new SqlServerCommander(CreateConnection);
             var version = await sqlserver.CurrentVersion();
             Assert.AreEqual(DatabaseVersionType.NotCreated, version.Type);
+        }
+        [Test]
+        public async void current_version_returns_missing_control_table_when_there_is_a_database_but_no_log_table()
+        {
+            database = "db_" + Guid.NewGuid().ToString("N");
+            var sqlserver = new SqlServerCommander(CreateConnection, database);
+            using (IDbConnection connection = CreateConnection())
+            {
+                connection.Open();
+                using (IDbCommand cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = string.Format("create database {0}", database);
+                    object result = cmd.ExecuteNonQuery();
+                }
+            }
+            var version = await sqlserver.CurrentVersion();
+            Assert.AreEqual(DatabaseVersionType.MissingMigrationHistoryTable, version.Type);
         }
 
         [Test]

@@ -9,6 +9,7 @@
     public enum DatabaseVersionType
     {
         NotCreated,
+        MissingMigrationHistoryTable,
         VersionNumber
     }
 }

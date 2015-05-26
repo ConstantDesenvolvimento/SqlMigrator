@@ -22,15 +22,21 @@ namespace SqlMigrator.Services.Implementation
         {
             DatabaseVersion current = await _handler.CurrentVersion();
             IEnumerable<Migration> migrations = null;
-            if (current.Type == DatabaseVersionType.NotCreated)
+            switch (current.Type)
             {
-                await _handler.Create();
-                migrations = (await _source.LoadMigrations()).OrderBy(m => m, _comparer);
+                case DatabaseVersionType.NotCreated:
+                    await _handler.Create();
+                    migrations = (await _source.LoadMigrations()).OrderBy(m => m, _comparer);
+                    break;
+                case DatabaseVersionType.MissingMigrationHistoryTable:
+                    await _handler.CreateMigrationHistoryTable();
+                    migrations = (await _source.LoadMigrations()).OrderBy(m => m, _comparer);
+                    break;
+                default:
+                     migrations = (await _source.LoadMigrations()).Where(m=>_comparer.IsMigrationAfterVersion(m,current.Number)).OrderBy(m => m, _comparer);
+                    break;
             }
-            else
-            {
-                migrations = (await _source.LoadMigrations()).Where(m=>_comparer.IsMigrationAfterVersion(m,current.Number)).OrderBy(m => m, _comparer);
-            }
+            
             foreach (var migration in migrations)
             {
                 await _handler.ExecuteMigration(migration);
