@@ -5,7 +5,6 @@ using System.Data.SqlClient;
 using NUnit.Framework;
 using SqlMigrator.Model;
 using SqlMigrator.Services.Databases;
-using SqlMigrator.Services.Databases.SqlServer;
 
 namespace Integration
 {

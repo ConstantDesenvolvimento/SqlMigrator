@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -9,7 +7,7 @@ using System.Threading.Tasks;
 using SqlMigrator.Logging;
 using SqlMigrator.Model;
 
-namespace SqlMigrator.Services.Databases.SqlServer
+namespace SqlMigrator.Services.Databases
 {
     public class SqlServerCommander : ICommandDatabases
     {
@@ -20,9 +18,29 @@ namespace SqlMigrator.Services.Databases.SqlServer
             @"(database|initial catalog)\s*=\s*(?<database>[^;]+)", RegexOptions.IgnoreCase);
         private static readonly Regex SqlSplitter = new Regex(
             @"^\s*GO\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
-        
 
-        private static readonly Dictionary<string, string> Templates=new Dictionary<string, string>();
+        private const string CreateDatabaseTemplate = @"
+            if not exists (select * from master.sys.databases where name='{0}') 
+	            create database [{0}]
+            GO
+            use [{0}]
+            GO
+            if not exists (select * from sys.schemas where name='migrations')
+	            EXEC('CREATE SCHEMA migrations ');
+            GO
+            if not exists (select * from sys.tables t inner join  sys.schemas s on s.schema_id=t.schema_id where t.name='log' and s.name='migrations' ) 
+	            create table migrations.log (number nvarchar(200) primary key clustered,applied datetimeoffset not null )
+            GO
+        ";
+        private const string ExecuteMigrationTemplate = @"
+            use [{0}]
+            GO
+            {1}
+            GO
+            insert into migrations.log (number,applied) values ('{2}',getdate())
+
+        ";
+
 
         public SqlServerCommander(Func<IDbConnection> connectionFactory,string database=null)
         {
@@ -52,7 +70,7 @@ namespace SqlMigrator.Services.Databases.SqlServer
         {
             return Task.Run(() =>
             {
-                RunSql(ApplyTemplate("CreateDatabase", _databaseName),false);
+                RunSql(ApplyTemplate(CreateDatabaseTemplate, _databaseName),false);
                 return _databaseName;
             });
         }
@@ -120,28 +138,10 @@ namespace SqlMigrator.Services.Databases.SqlServer
             }
             
         }
-        private string ApplyTemplate(string templateName, params object[] parameters)
+        private string ApplyTemplate(string template, params object[] parameters)
         {
-            string template = null;
-            Templates.TryGetValue(templateName, out template);
-            if (template == null)
-            {
-                using (var stream = Assembly.GetAssembly(typeof (SqlServerCommander))
-                    .GetManifestResourceStream(
-                        string.Format("SqlMigrator.Services.Databases.SqlServer.Scripts.{0}.tpl", templateName)))
-                {
-                    if (stream != null)
-                    {
-                        using (var reader = new StreamReader(stream))
-                        {
-                            template = reader.ReadToEnd();
-                        }
-                    }
-                }
-               
-                Templates.Add(templateName,template);
-            }
-            if (template != null)
+           
+            if (!string.IsNullOrEmpty(template))
             {
                 return string.Format(template, parameters);
             }
@@ -154,7 +154,7 @@ namespace SqlMigrator.Services.Databases.SqlServer
             {
                 if (ExecuteScalar<int>(string.Format("select count(*) from {0}.migrations.log where number='{1}'",_databaseName, migration.Number)) == 0)
                 {
-                    RunSql(ApplyTemplate("ExecuteMigration", _databaseName, migration.Sql,migration.Number));    
+                    RunSql(ApplyTemplate(ExecuteMigrationTemplate, _databaseName, migration.Sql,migration.Number));    
                 }
                 else
                 {

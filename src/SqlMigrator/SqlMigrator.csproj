@@ -42,7 +42,7 @@
     <Compile Include="App_Packages\LibLog.4.2\LibLog.cs" />
     <Compile Include="Model\DatabaseVersion.cs" />
     <Compile Include="Model\Migration.cs" />
-    <Compile Include="Services\Databases\SqlServer\SqlServerCommander.cs" />
+    <Compile Include="Services\Databases\SqlServerCommander.cs" />
     <Compile Include="Services\ICommandDatabases.cs" />
     <Compile Include="Services\IMigrateDatabases.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -53,14 +53,9 @@
     <Compile Include="Services\ISupplyMigrations.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Services\Databases\SqlServer\Scripts\CreateDatabase.tpl" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Services\Databases\SqlServer\Scripts\ExecuteMigration.tpl" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
