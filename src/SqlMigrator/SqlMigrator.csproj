@@ -39,21 +39,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="App_Packages\LibLog.4.2\LibLog.cs" />
-    <Compile Include="Model\DatabaseVersion.cs" />
-    <Compile Include="Model\Migration.cs" />
-    <Compile Include="Services\Databases\SqlServerCommander.cs" />
-    <Compile Include="Services\ICommandDatabases.cs" />
-    <Compile Include="Services\IMigrateDatabases.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Services\ICompareMigrations.cs" />
-    <Compile Include="Services\Implementation\FileSystemSource.cs" />
-    <Compile Include="Services\Implementation\Migrator.cs" />
-    <Compile Include="Services\Implementation\NumberComparer.cs" />
-    <Compile Include="Services\ISupplyMigrations.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
+    <Compile Include="SqlMigrator.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

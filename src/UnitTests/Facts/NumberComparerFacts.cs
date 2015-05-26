@@ -1,7 +1,7 @@
 ﻿using System;
 using NUnit.Framework;
-using SqlMigrator.Model;
-using SqlMigrator.Services.Implementation;
+using SqlMigrator;
+
 
 namespace UnitTests.Facts
 {

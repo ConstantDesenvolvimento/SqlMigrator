@@ -2,7 +2,7 @@
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
-using SqlMigrator.Services.Implementation;
+using SqlMigrator;
 
 namespace UnitTests.Facts
 {

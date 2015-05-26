@@ -3,8 +3,7 @@ using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using NUnit.Framework;
-using SqlMigrator.Model;
-using SqlMigrator.Services.Databases;
+using SqlMigrator;
 
 namespace Integration
 {
@@ -61,7 +60,7 @@ namespace Integration
         public async void current_version_returns_missing_control_table_when_there_is_a_database_but_no_log_table()
         {
             database = "db_" + Guid.NewGuid().ToString("N");
-            var sqlserver = new SqlServerCommander(CreateConnection, database);
+            var sqlserver = new SqlServerCommander(CreateConnection,null, database);
             using (IDbConnection connection = CreateConnection())
             {
                 connection.Open();
