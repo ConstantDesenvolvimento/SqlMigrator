@@ -301,8 +301,10 @@ namespace SqlMigrator
         {
             _logger = logger??new NullLogger();
             _connectionFactory = connectionFactory;
+            
             _service = service??"main";
             _databaseName = FindDatabaseName(database);
+            
         }
 
         private string FindDatabaseName(string database)
@@ -310,6 +312,13 @@ namespace SqlMigrator
             return database ?? GetConnectionStringDatabaseName() ?? "db_" + Guid.NewGuid().ToString("N");
         }
 
+        private IDbConnection OpenConnection()
+        {
+            var connection = _connectionFactory();
+            connection.ConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty);
+            connection.Open();
+            return connection;
+        }
         private string GetConnectionStringDatabaseName()
         {
             using (var connection = _connectionFactory())
@@ -339,12 +348,8 @@ namespace SqlMigrator
 
         private void RunSql(string sql, bool inTransaction = true)
         {
-            using (var connection = _connectionFactory())
+            using (var connection = OpenConnection())
             {
-                if (connection.State != ConnectionState.Open)
-                {
-                    connection.Open();
-                }
                 if (inTransaction)
                 {
                     using (var transaction = connection.BeginTransaction())
@@ -381,7 +386,7 @@ namespace SqlMigrator
 
         private T ExecuteScalar<T>(string sql)
         {
-            using (var connection = _connectionFactory())
+            using (var connection = OpenConnection())
             {
                 if (connection.State != ConnectionState.Open)
                 {
@@ -435,6 +440,7 @@ namespace SqlMigrator
                 }
                 catch (Exception ex)
                 {
+                    
                     _logger.Debug("got an exception while trying to retrieve the last applied migration number {@exception}", ex);
                     if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName)) == 0)
                     {

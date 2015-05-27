@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data;
 using System.Data.SqlClient;
+using Moq;
 using NUnit.Framework;
 using SqlMigrator;
 
@@ -15,17 +16,47 @@ namespace Integration
             var connectionString = string.Format("Data Source={0};Integrated Security=SSPI;", GetDataSource());
             return new SqlConnection(connectionString);
         }
-
+        private IDbConnection CreateDatabaseConnection()
+        {
+            var connectionString = string.Format("Data Source={0};Integrated Security=SSPI;database={1}", GetDataSource(),database);
+            return new SqlConnection(connectionString);
+        }
+        private static Mock<ISupplyMigrations> SetupSource()
+        {
+            var source = new Mock<ISupplyMigrations>();
+            source.Setup(s => s.LoadMigrations()).ReturnsAsync(new[]
+            {
+                new Migration {Sql = "create table test (id int not null)", Number = "0"},
+                new Migration {Sql = "create table test2 (id int not null)", Number = "1"}
+            });
+            return source;
+        }
         private static string GetDataSource()
         {
             var dataSource = Environment.GetEnvironmentVariable("integration_test_server_database");
-
             if (string.IsNullOrEmpty(dataSource))
             {
                 dataSource = ".";
             }
-
             return dataSource;
+        }
+
+        [Test]
+        public async void migrate_with_full_connection_string()
+        {
+            database = "db_" + Guid.NewGuid().ToString("N");
+            var migrator = new Migrator(SetupSource().Object,new NumberComparer(),new SqlServerCommander(CreateDatabaseConnection));
+            await migrator.Migrate();
+            using (IDbConnection connection = CreateConnection())
+            {
+                connection.Open();
+                using (IDbCommand cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = string.Format("select count(*) from sys.databases where name='{0}'", database);
+                    object result = cmd.ExecuteScalar();
+                    Assert.AreEqual(1, result);
+                }
+            }
         }
 
         [Test]
