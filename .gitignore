@@ -5,3 +5,6 @@ src/UnitTests/obj/
 src/SqlMigrator/bin/
 src/packages/
 src/UnitTests/bin/
+
+/src/packages
+*.suo
