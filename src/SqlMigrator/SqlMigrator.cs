@@ -229,7 +229,7 @@ namespace SqlMigrator
         {
             _assembly = assembly;
             _path = path;
-            _fileNameRegex=new Regex(path.Replace(".",@"\.")+@"\.(?<name>\w+)\.?(\w+)?$", RegexOptions.Singleline);
+            _fileNameRegex = new Regex(path.Replace(".", @"\.") + @"\.(?<name>[^.]+)\.?([^.]+)?$", RegexOptions.Singleline);
         }
 
         public Task<IEnumerable<Migration>> LoadMigrations()
