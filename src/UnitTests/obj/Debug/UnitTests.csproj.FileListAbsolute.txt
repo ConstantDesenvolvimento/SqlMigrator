@@ -7,3 +7,5 @@ C:\Git\SqlMigrator\src\UnitTests\obj\Debug\UnitTests.dll
 C:\Git\SqlMigrator\src\UnitTests\obj\Debug\UnitTests.pdb
 C:\Git\SqlMigrator\src\UnitTests\bin\Debug\SqlMigrator.dll
 C:\Git\SqlMigrator\src\UnitTests\bin\Debug\SqlMigrator.pdb
+C:\Git\SqlMigrator\src\UnitTests\bin\Debug\Moq.dll
+C:\Git\SqlMigrator\src\UnitTests\bin\Debug\Moq.xml
