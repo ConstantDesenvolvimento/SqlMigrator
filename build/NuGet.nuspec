@@ -2,8 +2,8 @@
 <package>
   
   <metadata>    
-    <title>SqlMigrator</title>
-    <id>SqlMigrator</id>
+    <title>Constant.SqlMigrator</title>
+    <id>Constant.SqlMigrator</id>
     <authors>Jose Felix</authors>
     <owners>Constant</owners>
     <version>1.0.0</version>
