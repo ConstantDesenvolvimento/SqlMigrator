@@ -8,3 +8,4 @@ src/UnitTests/bin/
 
 /src/packages
 *.suo
+*.user

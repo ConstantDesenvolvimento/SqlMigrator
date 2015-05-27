@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using NUnit.Framework;
@@ -13,7 +12,20 @@ namespace Integration
         private string database;
         private IDbConnection CreateConnection()
         {
-            return new SqlConnection(ConfigurationManager.AppSettings["ConnectionString"]);
+            var connectionString = string.Format("Data Source={0};Integrated Security=SSPI;", GetDataSource());
+            return new SqlConnection(connectionString);
+        }
+
+        private static string GetDataSource()
+        {
+            var dataSource = Environment.GetEnvironmentVariable("integration_test_server_database");
+
+            if (string.IsNullOrEmpty(dataSource))
+            {
+                dataSource = ".";
+            }
+
+            return dataSource;
         }
 
         [Test]
