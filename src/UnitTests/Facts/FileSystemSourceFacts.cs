@@ -36,7 +36,7 @@ namespace UnitTests.Facts
                 CreateFile(dir, "20150521.sql", content);
                 CreateFile(dir, "20150522.sql", content);
                 var source = new FileSystemSource(dir);
-                var migrations = source.LoadMigrations().Result;
+                var migrations = source.LoadMigrations().ToList();
                 Assert.AreEqual(3, migrations.Count());
                 foreach (var migration in migrations)
                 {
@@ -60,7 +60,7 @@ namespace UnitTests.Facts
                 var content = "--sql header comment";
                 CreateFile(dir, "20150520.sql", content);
                 var source = new FileSystemSource(dir);
-                var migrations = source.LoadMigrations().Result;
+                var migrations = source.LoadMigrations().ToList();
                 Assert.AreEqual(1, migrations.Count());
                 Assert.AreEqual("20150520",migrations.First().Number);
             }

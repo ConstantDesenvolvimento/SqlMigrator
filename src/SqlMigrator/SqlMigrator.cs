@@ -56,12 +56,12 @@ namespace SqlMigrator
     #region Services
     internal interface ISupplyMigrations
     {
-        Task<IEnumerable<Migration>> LoadMigrations();
+       IEnumerable<Migration>LoadMigrations();
 
     }
     internal interface IMigrateDatabases
     {
-        Task Migrate();
+        void Migrate();
     }
     internal interface ICompareMigrations : IComparer<Migration>
     {
@@ -70,10 +70,10 @@ namespace SqlMigrator
     }
     internal interface ICommandDatabases
     {
-        Task<string> Create();
-        Task CreateMigrationHistoryTable();
-        Task ExecuteMigration(Migration migration);
-        Task<DatabaseVersion> CurrentVersion();
+        string Create();
+        void CreateMigrationHistoryTable();
+        void ExecuteMigration(Migration migration);
+        DatabaseVersion CurrentVersion();
     }
 
     internal interface ILog
@@ -162,28 +162,28 @@ namespace SqlMigrator
             _handler = handler;
         }
 
-        public async Task Migrate()
+        public void Migrate()
         {
-            DatabaseVersion current = await _handler.CurrentVersion();
+            DatabaseVersion current = _handler.CurrentVersion();
             IEnumerable<Migration> migrations = null;
             switch (current.Type)
             {
                 case DatabaseVersionType.NotCreated:
-                    await _handler.Create();
-                    migrations = (await _source.LoadMigrations()).OrderBy(m => m, _comparer);
+                     _handler.Create();
+                    migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
                     break;
                 case DatabaseVersionType.MissingMigrationHistoryTable:
-                    await _handler.CreateMigrationHistoryTable();
-                    migrations = (await _source.LoadMigrations()).OrderBy(m => m, _comparer);
+                     _handler.CreateMigrationHistoryTable();
+                    migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
                     break;
                 default:
-                    migrations = (await _source.LoadMigrations()).Where(m => _comparer.IsMigrationAfterVersion(m, current.Number)).OrderBy(m => m, _comparer);
+                    migrations =  _source.LoadMigrations().Where(m => _comparer.IsMigrationAfterVersion(m, current.Number)).OrderBy(m => m, _comparer);
                     break;
             }
 
             foreach (var migration in migrations)
             {
-                await _handler.ExecuteMigration(migration);
+                 _handler.ExecuteMigration(migration);
             }
 
         }
@@ -197,25 +197,21 @@ namespace SqlMigrator
             _path = path;
         }
 
-        public Task<IEnumerable<Migration>> LoadMigrations()
+        public IEnumerable<Migration> LoadMigrations()
         {
-            return Task.Run(() =>
+            foreach (var file in Directory.GetFiles(_path))
             {
-                var migrations = new List<Migration>();
-                foreach (var file in Directory.GetFiles(_path))
+                using (var reader = File.OpenText(file))
                 {
-                    using (var reader = File.OpenText(file))
+                    yield return new Migration()
                     {
-                        migrations.Add(new Migration()
-                        {
-                            Number = Path.GetFileNameWithoutExtension(file),
-                            Sql = reader.ReadToEnd()
-                        });
-                    }
-
+                        Number = Path.GetFileNameWithoutExtension(file),
+                        Sql = reader.ReadToEnd()
+                    };
                 }
-                return (IEnumerable<Migration>)migrations;
-            });
+
+            }
+            
         }
     }
 
@@ -232,34 +228,31 @@ namespace SqlMigrator
             _fileNameRegex = new Regex(path.Replace(".", @"\.") + @"\.(?<name>[^.]+)\.?([^.]+)?$", RegexOptions.Singleline);
         }
 
-        public Task<IEnumerable<Migration>> LoadMigrations()
-        {
-            return Task.Run(() => EnumMigrations());
-
-        }
-
-        private IEnumerable<Migration> EnumMigrations()
+        public IEnumerable<Migration> LoadMigrations()
         {
             foreach (var resourceName in _assembly.GetManifestResourceNames())
             {
                 var match = _fileNameRegex.Match(resourceName);
                 if (match.Success)
                 {
-                  using (var stream = _assembly.GetManifestResourceStream(resourceName))
+                    using (var stream = _assembly.GetManifestResourceStream(resourceName))
                     {
                         if (stream != null)
                         {
                             using (var reader = new StreamReader(stream))
                             {
-                                yield return new Migration() {Sql = reader.ReadToEnd(),Number = match.Groups["name"].Value };
+                                yield return new Migration() { Sql = reader.ReadToEnd(), Number = match.Groups["name"].Value };
                             }
                         }
-                    }  
+                    }
                 }
-                    
-                
+
+
             }
+
         }
+
+       
     }
     internal class SqlServerCommander : ICommandDatabases
     {
@@ -332,18 +325,15 @@ namespace SqlMigrator
             return null;
         }
 
-        public Task<string> Create()
+        public string Create()
         {
-            return Task.Run(() =>
-            {
-                RunSql(ApplyTemplate(CreateDatabaseTemplate, _databaseName), false);
-                return _databaseName;
-            });
+            RunSql(ApplyTemplate(CreateDatabaseTemplate, _databaseName), false);
+            return _databaseName;
         }
 
-        public Task CreateMigrationHistoryTable()
+        public void CreateMigrationHistoryTable()
         {
-            return Create();
+            Create();
         }
 
         private void RunSql(string sql, bool inTransaction = true)
@@ -410,49 +400,43 @@ namespace SqlMigrator
             return null;
         }
 
-        public Task ExecuteMigration(Migration migration)
+        public void ExecuteMigration(Migration migration)
         {
-            return Task.Run(() =>
+            if (ExecuteScalar<int>(string.Format("select count(*) from {0}.migrations.history where service='{1}' and number='{2}'", _databaseName,_service, migration.Number)) == 0)
             {
-                if (ExecuteScalar<int>(string.Format("select count(*) from {0}.migrations.history where service='{1}' and number='{2}'", _databaseName,_service, migration.Number)) == 0)
-                {
-                    RunSql(ApplyTemplate(ExecuteMigrationTemplate, _databaseName,_service, migration.Number, migration.Sql));
-                }
-                else
-                {
-                    _logger.Info("trying to reapply  migration {migrationNumber} to database {database} ", migration.Number, _databaseName);
-                    throw new InvalidOperationException("migration already applied!");
-                }
-
-            });
-
+                RunSql(ApplyTemplate(ExecuteMigrationTemplate, _databaseName,_service, migration.Number, migration.Sql));
+            }
+            else
+            {
+                _logger.Info("trying to reapply  migration {migrationNumber} to database {database} ", migration.Number, _databaseName);
+                throw new InvalidOperationException("migration already applied!");
+            }
         }
 
-        public Task<DatabaseVersion> CurrentVersion()
+        public DatabaseVersion CurrentVersion()
         {
-            return Task.Run(() =>
+            
+            string version = null;
+            try
             {
-                string version = null;
-                try
-                {
-                    version =
-                   ExecuteScalar<string>(string.Format("select top 1 number from {0}.migrations.history where service='{1}' order by applied desc ", _databaseName,_service));
-                }
-                catch (Exception ex)
-                {
+                version =
+                ExecuteScalar<string>(string.Format("select top 1 number from {0}.migrations.history where service='{1}' order by applied desc ", _databaseName,_service));
+            }
+            catch (Exception ex)
+            {
                     
-                    _logger.Debug("got an exception while trying to retrieve the last applied migration number {@exception}", ex);
-                    if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName)) == 0)
-                    {
-                        return new DatabaseVersion() { Type = DatabaseVersionType.NotCreated };
-                    }
-                    if (ExecuteScalar<int>(string.Format("select count(*) from {0}.sys.tables t inner join  {0}.sys.schemas s on s.schema_id=t.schema_id where t.name='history' and s.name='migrations' ", _databaseName)) == 0)
-                    {
-                        return new DatabaseVersion() { Type = DatabaseVersionType.MissingMigrationHistoryTable };
-                    }
+                _logger.Debug("got an exception while trying to retrieve the last applied migration number {@exception}", ex);
+                if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName)) == 0)
+                {
+                    return new DatabaseVersion() { Type = DatabaseVersionType.NotCreated };
                 }
-                return new DatabaseVersion() { Type = DatabaseVersionType.VersionNumber, Number = version };
-            });
+                if (ExecuteScalar<int>(string.Format("select count(*) from {0}.sys.tables t inner join  {0}.sys.schemas s on s.schema_id=t.schema_id where t.name='history' and s.name='migrations' ", _databaseName)) == 0)
+                {
+                    return new DatabaseVersion() { Type = DatabaseVersionType.MissingMigrationHistoryTable };
+                }
+            }
+            return new DatabaseVersion() { Type = DatabaseVersionType.VersionNumber, Number = version };
+           
         }
     }
 #endregion

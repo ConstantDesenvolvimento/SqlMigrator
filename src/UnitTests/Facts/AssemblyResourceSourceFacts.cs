@@ -12,7 +12,7 @@ namespace UnitTests.Facts
         public async void ListMigrations()
         {
             var source = new AssemblyResourcesSource(GetType().Assembly, "Resources");
-            List<Migration> migrations = (await source.LoadMigrations()).ToList();
+            List<Migration> migrations = ( source.LoadMigrations()).ToList();
             Assert.AreEqual(2, migrations.Count);
             Assert.AreEqual("--sql header comment",migrations.First().Sql);
             Assert.AreEqual("20150101", migrations.First().Number);
