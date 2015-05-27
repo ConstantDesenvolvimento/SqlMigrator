@@ -11,7 +11,8 @@
     <description>SQL Migrator</description>
     <copyright>Copyright 2015 - CONSTANT Desenvolvimento</copyright>
     <licenseUrl>https://github.com/ConstantDesenvolvimento/SqlMigrator/blob/master/license.txt</licenseUrl>
-    <tags>sql migrator migration</tags>  
+    <tags>sql migrator migration</tags>
+    <iconUrl>https://github.com/ConstantDesenvolvimento/SqlMigrator/blob/master/build/nuget_package_icon_32_32.png</iconUrl>
   </metadata>
 
   <files>
