@@ -11,6 +11,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{D1E0FE97
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Integration", "Integration\Integration.csproj", "{D9845B63-C887-4C31-B33D-2506BE83F6EE}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{08906AD4-280F-4DC7-AE0A-85F22092EF76}"
+	ProjectSection(SolutionItems) = preProject
+		..\build\CreatePP.ps1 = ..\build\CreatePP.ps1
+		..\build\DefineVersion.msbuild = ..\build\DefineVersion.msbuild
+		..\build\NuGet.nuspec = ..\build\NuGet.nuspec
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
