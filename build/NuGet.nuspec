@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package>
+  
+  <metadata>    
+    <title>SqlMigrator</title>
+    <id>SqlMigrator</id>
+    <authors>Constant</authors>
+    <owners>Constant</owners>
+    <version>1.0.0</version>
+    <projectUrl>https://github.com/ConstantDesenvolvimento/SqlMigrator</projectUrl>
+    <description>SQL Migrator</description>
+    <copyright>Copyright 2015 - CONSTANT Desenvolvimento</copyright>
+    <tags>sql migrator migration</tags>  
+  </metadata>
+
+  <files>
+     <file src="..\src\SqlMigrator\SqlMigrator.cs.pp" target="content\App_Packages\SqlMigrator\SqlMigrator.cs.pp" />
+  </files>
+
+</package>

@@ -1,3 +1,7 @@
 src/SqlMigrator/obj/
 src/Integration/bin/
 src/Integration/obj/
+src/UnitTests/obj/
+src/SqlMigrator/bin/
+src/packages/
+src/UnitTests/bin/
