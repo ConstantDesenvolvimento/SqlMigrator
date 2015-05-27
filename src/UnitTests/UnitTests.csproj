@@ -42,6 +42,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Facts\AssemblyResourceSourceFacts.cs" />
     <Compile Include="Facts\FileSystemSourceFacts.cs" />
     <Compile Include="Facts\NumberComparerFacts.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -54,6 +55,9 @@
       <Project>{47DC7891-A632-468E-A5F5-FF8C04EBFF90}</Project>
       <Name>SqlMigrator</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\20150101.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

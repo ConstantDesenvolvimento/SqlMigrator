@@ -33,7 +33,7 @@ namespace Integration
             }
         }
         [Test]
-        public async void database_created_has_migration_log_table()
+        public async void database_created_has_migration_history_table()
         {
             var sqlserver = new SqlServerCommander(CreateConnection);
             database = await sqlserver.Create();
@@ -42,7 +42,7 @@ namespace Integration
                 connection.Open();
                 using (IDbCommand cmd = connection.CreateCommand())
                 {
-                    cmd.CommandText = string.Format("select count(*) from {0}.sys.tables t inner join  {0}.sys.schemas s on s.schema_id=t.schema_id where t.name='log' and s.name='migrations'", database);
+                    cmd.CommandText = string.Format("select count(*) from {0}.sys.tables t inner join  {0}.sys.schemas s on s.schema_id=t.schema_id where t.name='history' and s.name='migrations'", database);
                     object result = cmd.ExecuteScalar();
                     Assert.AreEqual(1, result);
                 }
@@ -57,7 +57,7 @@ namespace Integration
             Assert.AreEqual(DatabaseVersionType.NotCreated, version.Type);
         }
         [Test]
-        public async void current_version_returns_missing_control_table_when_there_is_a_database_but_no_log_table()
+        public async void current_version_returns_missing_control_table_when_there_is_a_database_but_no_history_table()
         {
             database = "db_" + Guid.NewGuid().ToString("N");
             var sqlserver = new SqlServerCommander(CreateConnection,null, database);

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
-
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -11,18 +11,18 @@ using System.Threading.Tasks;
 namespace SqlMigrator
 {
     #region Models
-    public class DatabaseVersion
+    internal class DatabaseVersion
     {
         public DatabaseVersionType Type { get; set; }
         public string Number { get; set; }
     }
-    public class Migration
+    internal class Migration
     {
         public string Number { get; set; }
         public string Sql { get; set; }
     }
 
-    public enum DatabaseVersionType
+    internal enum DatabaseVersionType
     {
         NotCreated,
         MissingMigrationHistoryTable,
@@ -30,21 +30,21 @@ namespace SqlMigrator
     }
     #endregion
     #region Services
-    public interface ISupplyMigrations
+    internal interface ISupplyMigrations
     {
         Task<IEnumerable<Migration>> LoadMigrations();
 
     }
-    public interface IMigrateDatabases
+    internal interface IMigrateDatabases
     {
         Task Migrate();
     }
-    public interface ICompareMigrations : IComparer<Migration>
+    internal interface ICompareMigrations : IComparer<Migration>
     {
         bool IsMigrationAfterVersion(Migration m, string version);
 
     }
-    public interface ICommandDatabases
+    internal interface ICommandDatabases
     {
         Task<string> Create();
         Task CreateMigrationHistoryTable();
@@ -52,7 +52,7 @@ namespace SqlMigrator
         Task<DatabaseVersion> CurrentVersion();
     }
 
-    public interface ILog
+    internal interface ILog
     {
         void Info(string message,params object[] parameters);
         void Debug(string message,params object[] parameters);
@@ -63,7 +63,7 @@ namespace SqlMigrator
     #endregion
 #region ServiceImplementation
 
-    public class NullLogger:ILog
+    internal class NullLogger:ILog
     {
         public void Info(string message, params object[] parameters)
         {
@@ -80,7 +80,7 @@ namespace SqlMigrator
            
         }
     }
-    public class NumberComparer : ICompareMigrations
+    internal class NumberComparer : ICompareMigrations
     {
         private static readonly Regex Numbers = new Regex(@"\d+");
 
@@ -125,7 +125,7 @@ namespace SqlMigrator
             return retval;
         }
     }
-    public class Migrator : IMigrateDatabases
+    internal class Migrator : IMigrateDatabases
     {
         private readonly ICompareMigrations _comparer;
         private readonly ICommandDatabases _handler;
@@ -164,7 +164,7 @@ namespace SqlMigrator
 
         }
     }
-    public class FileSystemSource : ISupplyMigrations
+    internal class FileSystemSource : ISupplyMigrations
     {
         private readonly string _path;
 
@@ -194,10 +194,54 @@ namespace SqlMigrator
             });
         }
     }
-    public class SqlServerCommander : ICommandDatabases
+
+    internal class AssemblyResourcesSource : ISupplyMigrations
+    {
+        private readonly Assembly _assembly;
+        private readonly string _path;
+        private readonly Regex _fileNameRegex;
+
+        public AssemblyResourcesSource(Assembly assembly, string path)
+        {
+            _assembly = assembly;
+            _path = path;
+            _fileNameRegex=new Regex(path.Replace(".",@"\.")+@"\.(?<name>\w+)\.?(\w+)?$", RegexOptions.Singleline);
+        }
+
+        public Task<IEnumerable<Migration>> LoadMigrations()
+        {
+            return Task.Run(() => EnumMigrations());
+
+        }
+
+        private IEnumerable<Migration> EnumMigrations()
+        {
+            foreach (var resourceName in _assembly.GetManifestResourceNames())
+            {
+                var match = _fileNameRegex.Match(resourceName);
+                if (match.Success)
+                {
+                  using (var stream = _assembly.GetManifestResourceStream(resourceName))
+                    {
+                        if (stream != null)
+                        {
+                            using (var reader = new StreamReader(stream))
+                            {
+                                yield return new Migration() {Sql = reader.ReadToEnd(),Number = match.Groups["name"].Value };
+                            }
+                        }
+                    }  
+                }
+                    
+                
+            }
+        }
+    }
+    internal class SqlServerCommander : ICommandDatabases
     {
         private readonly ILog _logger;
         private readonly Func<IDbConnection> _connectionFactory;
+        private readonly string _service;
         private readonly string _databaseName;
         private static readonly Regex DatabaseFinder = new Regex(
             @"(database|initial catalog)\s*=\s*(?<database>[^;]+)", RegexOptions.IgnoreCase);
@@ -214,23 +258,26 @@ namespace SqlMigrator
 	            EXEC('CREATE SCHEMA migrations ');
             GO
             if not exists (select * from sys.tables t inner join  sys.schemas s on s.schema_id=t.schema_id where t.name='log' and s.name='migrations' ) 
-	            create table migrations.log (number nvarchar(200) primary key clustered,applied datetimeoffset not null )
+                begin
+	                create table migrations.history (service nvarchar(200) not null,number nvarchar(200) not null,applied datetimeoffset not null , CONSTRAINT PK_history PRIMARY KEY CLUSTERED 	(service,number	) )
+                end
             GO
         ";
         private const string ExecuteMigrationTemplate = @"
             use [{0}]
             GO
-            {1}
+            {3}
             GO
-            insert into migrations.log (number,applied) values ('{2}',getdate())
+            insert into migrations.history (service,number,applied) values ('{1}','{2}',getdate())
 
         ";
 
 
-        public SqlServerCommander(Func<IDbConnection> connectionFactory,ILog logger=null, string database = null)
+        public SqlServerCommander(Func<IDbConnection> connectionFactory,ILog logger=null, string database = null,string service=null)
         {
             _logger = logger??new NullLogger();
             _connectionFactory = connectionFactory;
+            _service = service??"main";
             _databaseName = FindDatabaseName(database);
         }
 
@@ -338,9 +385,9 @@ namespace SqlMigrator
         {
             return Task.Run(() =>
             {
-                if (ExecuteScalar<int>(string.Format("select count(*) from {0}.migrations.log where number='{1}'", _databaseName, migration.Number)) == 0)
+                if (ExecuteScalar<int>(string.Format("select count(*) from {0}.migrations.history where service='{1}' and number='{2}'", _databaseName,_service, migration.Number)) == 0)
                 {
-                    RunSql(ApplyTemplate(ExecuteMigrationTemplate, _databaseName, migration.Sql, migration.Number));
+                    RunSql(ApplyTemplate(ExecuteMigrationTemplate, _databaseName,_service, migration.Number, migration.Sql));
                 }
                 else
                 {
@@ -360,7 +407,7 @@ namespace SqlMigrator
                 try
                 {
                     version =
-                   ExecuteScalar<string>(string.Format("select top 1 number from {0}.migrations.log order by applied desc ", _databaseName));
+                   ExecuteScalar<string>(string.Format("select top 1 number from {0}.migrations.history where service='{1}' order by applied desc ", _databaseName,_service));
                 }
                 catch (Exception ex)
                 {
@@ -369,14 +416,11 @@ namespace SqlMigrator
                     {
                         return new DatabaseVersion() { Type = DatabaseVersionType.NotCreated };
                     }
-                    if (ExecuteScalar<int>(string.Format("select count(*) from {0}.sys.tables t inner join  {0}.sys.schemas s on s.schema_id=t.schema_id where t.name='log' and s.name='migrations' ", _databaseName)) == 0)
+                    if (ExecuteScalar<int>(string.Format("select count(*) from {0}.sys.tables t inner join  {0}.sys.schemas s on s.schema_id=t.schema_id where t.name='history' and s.name='migrations' ", _databaseName)) == 0)
                     {
                         return new DatabaseVersion() { Type = DatabaseVersionType.MissingMigrationHistoryTable };
                     }
                 }
-
-
-
                 return new DatabaseVersion() { Type = DatabaseVersionType.VersionNumber, Number = version };
             });
         }
