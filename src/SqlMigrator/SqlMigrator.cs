@@ -29,7 +29,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 
 namespace SqlMigrator
@@ -50,6 +49,7 @@ namespace SqlMigrator
     {
         NotCreated,
         MissingMigrationHistoryTable,
+        NoVersionNumber,
         VersionNumber
     }
     #endregion
@@ -175,6 +175,9 @@ namespace SqlMigrator
                 case DatabaseVersionType.MissingMigrationHistoryTable:
                      _handler.CreateMigrationHistoryTable();
                     migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
+                    break;
+                case DatabaseVersionType.NoVersionNumber:
+                    migrations = _source.LoadMigrations().OrderBy(m => m, _comparer);
                     break;
                 default:
                     migrations =  _source.LoadMigrations().Where(m => _comparer.IsMigrationAfterVersion(m, current.Number)).OrderBy(m => m, _comparer);
@@ -446,6 +449,12 @@ namespace SqlMigrator
                     return new DatabaseVersion() { Type = DatabaseVersionType.MissingMigrationHistoryTable };
                 }
             }
+
+            if (version == null)
+            {
+                return new DatabaseVersion() { Type = DatabaseVersionType.NoVersionNumber };
+            }
+
             return new DatabaseVersion() { Type = DatabaseVersionType.VersionNumber, Number = version };
            
         }
