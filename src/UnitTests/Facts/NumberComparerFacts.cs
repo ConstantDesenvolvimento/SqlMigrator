@@ -84,6 +84,15 @@ namespace UnitTests.Facts
         }
 
         [Test]
+        public void VersionIsNullOrEmpty()
+        {
+            var migrationA = new Migration { Number = "111" };
+            var comparer = new NumberComparer();
+            Assert.AreEqual(true, comparer.IsMigrationAfterVersion(migrationA, null));
+            Assert.AreEqual(true, comparer.IsMigrationAfterVersion(migrationA, ""));
+        }
+
+        [Test]
         public void InvalidFormatX()
         {
             var migrationA = new Migration { Number = "ABC" };

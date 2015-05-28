@@ -107,26 +107,7 @@ namespace Integration
             DatabaseVersion version = sqlserver.CurrentVersion();
             Assert.AreEqual(DatabaseVersionType.NotCreated, version.Type);
         }
-
-        [Test]
-        public void current_version_returns_no_version_number_when_there_is_a_database_and_a_history_table_but_no_service_version_number()
-        {
-            var sqlserver = new SqlServerCommander(CreateConnection);
-            database = sqlserver.Create();
-            
-            sqlserver.ExecuteMigration(new Migration
-            {
-                Number = "20150101",
-                Sql = "create table test (id int primary key clustered)"
-            });
-            
-            var sqlServerToAnotherService = new SqlServerCommander(CreateConnection, null, database, "AnotherService");
-
-            DatabaseVersion version = sqlServerToAnotherService.CurrentVersion();
-            Assert.AreEqual(DatabaseVersionType.NoVersionNumber, version.Type);
-            Assert.IsNull(version.Number);
-        }
-
+        
         [Test]
         public void database_created_has_migration_history_table()
         {

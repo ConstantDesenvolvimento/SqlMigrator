@@ -49,7 +49,6 @@ namespace SqlMigrator
     {
         NotCreated,
         MissingMigrationHistoryTable,
-        NoVersionNumber,
         VersionNumber
     }
     #endregion
@@ -136,6 +135,11 @@ namespace SqlMigrator
 
         public bool IsMigrationAfterVersion(Migration m, string version)
         {
+            if (string.IsNullOrEmpty(version))
+            {
+                return true;
+            }
+
             return Compare(m, new Migration { Number = version }) == 1;
         }
 
@@ -175,9 +179,6 @@ namespace SqlMigrator
                 case DatabaseVersionType.MissingMigrationHistoryTable:
                      _handler.CreateMigrationHistoryTable();
                     migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
-                    break;
-                case DatabaseVersionType.NoVersionNumber:
-                    migrations = _source.LoadMigrations().OrderBy(m => m, _comparer);
                     break;
                 default:
                     migrations =  _source.LoadMigrations().Where(m => _comparer.IsMigrationAfterVersion(m, current.Number)).OrderBy(m => m, _comparer);
@@ -449,14 +450,8 @@ namespace SqlMigrator
                     return new DatabaseVersion() { Type = DatabaseVersionType.MissingMigrationHistoryTable };
                 }
             }
-
-            if (version == null)
-            {
-                return new DatabaseVersion() { Type = DatabaseVersionType.NoVersionNumber };
-            }
-
+            
             return new DatabaseVersion() { Type = DatabaseVersionType.VersionNumber, Number = version };
-           
         }
     }
 #endregion

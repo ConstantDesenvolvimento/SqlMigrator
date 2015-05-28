@@ -108,18 +108,5 @@ namespace UnitTests.Facts
             handler.Verify(h => h.CreateMigrationHistoryTable(), Times.Once);
             handler.Verify(h => h.ExecuteMigration(It.IsAny<Migration>()), Times.Exactly(2));
         }
-
-        [Test]
-        public void history_table_already_exists_but_without_version_number_to_service()
-        {
-            Mock<ISupplyMigrations> source = SetupSource();
-            Mock<ICommandDatabases> handler = SetupHandler(new DatabaseVersion { Type = DatabaseVersionType.NoVersionNumber });
-            Mock<ICompareMigrations> comparer = SetupComparer();
-            var migrator = new Migrator(source.Object, comparer.Object, handler.Object);
-            migrator.Migrate();
-            handler.Verify(h => h.Create(), Times.Never);
-            handler.Verify(h => h.CreateMigrationHistoryTable(), Times.Never);
-            handler.Verify(h => h.ExecuteMigration(It.IsAny<Migration>()), Times.Exactly(2));
-        }
     }
 }
