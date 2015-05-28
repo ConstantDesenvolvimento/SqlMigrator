@@ -181,7 +181,7 @@ namespace SqlMigrator
                     break;
             }
 
-            foreach (var migration in migrations)
+            foreach (var migration in migrations.ToList())
             {
                  _handler.ExecuteMigration(migration);
             }
@@ -308,7 +308,18 @@ namespace SqlMigrator
         private IDbConnection OpenConnection()
         {
             var connection = _connectionFactory();
-            connection.ConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty);
+            var newConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty);
+
+            if (newConnectionString != connection.ConnectionString)
+            {
+                if (connection.State != ConnectionState.Closed)
+                {
+                    connection.Close();
+                }
+
+                connection.ConnectionString = newConnectionString;
+            }
+
             connection.Open();
             return connection;
         }
