@@ -312,17 +312,8 @@ namespace SqlMigrator
         private IDbConnection OpenConnection()
         {
             var connection = _connectionFactory();
-            var newConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty);
 
-            if (newConnectionString != connection.ConnectionString)
-            {
-                if (connection.State != ConnectionState.Closed)
-                {
-                    connection.Close();
-                }
-
-                connection.ConnectionString = newConnectionString;
-            }
+            connection.ConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty);;
 
             connection.Open();
             return connection;
