@@ -312,10 +312,11 @@ namespace SqlMigrator
         private IDbConnection OpenConnection()
         {
             var connection = _connectionFactory();
-
-            connection.ConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty);;
-
-            connection.Open();
+            if (connection.State != ConnectionState.Open)
+            {
+                connection.ConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty); ;
+                connection.Open();
+            }
             return connection;
         }
         private string GetConnectionStringDatabaseName()
