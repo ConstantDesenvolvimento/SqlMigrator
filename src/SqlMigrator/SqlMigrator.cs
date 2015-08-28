@@ -411,7 +411,15 @@ namespace SqlMigrator
         {
             if (ExecuteScalar<int>(string.Format("select count(*) from {0}.migrations.history where service='{1}' and number='{2}'", _databaseName,_service, migration.Number)) == 0)
             {
-                RunSql(ApplyTemplate(ExecuteMigrationTemplate, _databaseName,_service, migration.Number, migration.Sql));
+                try
+                {
+                    RunSql(ApplyTemplate(ExecuteMigrationTemplate, _databaseName, _service, migration.Number, migration.Sql));
+                }
+                catch (Exception)
+                {
+                    _logger.Error("Error while execute migration {migrationNumber} to database {database}.", migration.Number, _databaseName);   
+                    throw;
+                }
             }
             else
             {
