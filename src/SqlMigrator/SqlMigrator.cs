@@ -84,7 +84,7 @@ namespace SqlMigrator
     }
 
     #endregion
-#region ServiceImplementation
+    #region ServiceImplementation
 
     internal class NullLogger:ILog
     {
@@ -275,12 +275,12 @@ namespace SqlMigrator
             GO
             use [{0}]
             GO
-            if not exists (select * from sys.schemas where name='migrations')
-	            EXEC('CREATE SCHEMA migrations ');
+            if not exists (select * from sys.schemas where name='MIGRATIONS')
+	            EXEC('CREATE SCHEMA MIGRATIONS ');
             GO
-            if not exists (select * from sys.tables t inner join  sys.schemas s on s.schema_id=t.schema_id where t.name='log' and s.name='migrations' ) 
+            if not exists (select * from sys.tables t inner join  sys.schemas s on s.schema_id=t.schema_id where t.name='log' and s.name='MIGRATIONS' ) 
                 begin
-	                create table migrations.history (service nvarchar(200) not null,number nvarchar(200) not null,applied datetimeoffset not null , CONSTRAINT PK_history PRIMARY KEY CLUSTERED 	(service,number	) )
+	                create table migrations.History (service nvarchar(200) not null,number nvarchar(200) not null,applied datetimeoffset not null , CONSTRAINT PK_history PRIMARY KEY CLUSTERED 	(service,number	) )
                 end
             GO
         ";
@@ -289,7 +289,7 @@ namespace SqlMigrator
             GO
             {3}
             GO
-            insert into migrations.history (service,number,applied) values ('{1}','{2}',getdate())
+            insert into MIGRATIONS.History (service,number,applied) values ('{1}','{2}',getdate())
 
         ";
 
