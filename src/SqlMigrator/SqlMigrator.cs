@@ -30,7 +30,6 @@ using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
-
 namespace SqlMigrator
 {
     #region Models
@@ -44,7 +43,6 @@ namespace SqlMigrator
         public string Number { get; set; }
         public string Sql { get; set; }
     }
-
     internal enum DatabaseVersionType
     {
         NotCreated,
@@ -52,6 +50,7 @@ namespace SqlMigrator
         VersionNumber
     }
     #endregion
+
     #region Services
     internal interface ISupplyMigrations
     {
@@ -74,19 +73,21 @@ namespace SqlMigrator
         void ExecuteMigration(Migration migration);
         DatabaseVersion CurrentVersion();
     }
-
     internal interface ILog
     {
         void Info(string message,params object[] parameters);
         void Debug(string message,params object[] parameters);
         void Error(string message,params object[] parameters);
-
     }
-
+    internal interface ILocker
+    {
+        void Lock();
+        void Release();
+    }
     #endregion
-    #region ServiceImplementation
 
-    internal class NullLogger:ILog
+    #region ServiceImplementation
+    internal class NullLogger : ILog
     {
         public void Info(string message, params object[] parameters)
         {
@@ -101,6 +102,16 @@ namespace SqlMigrator
         public void Error(string message, params object[] parameters)
         {
            
+        }
+    }
+    internal class NullLocker : ILocker
+    {
+        public void Lock()
+        {
+        }
+
+        public void Release()
+        {
         }
     }
     internal class NumberComparer : ICompareMigrations
@@ -157,39 +168,54 @@ namespace SqlMigrator
     {
         private readonly ICompareMigrations _comparer;
         private readonly ICommandDatabases _handler;
+        private readonly ILocker _locker;
         private readonly ISupplyMigrations _source;
 
-        public Migrator(ISupplyMigrations source, ICompareMigrations comparer, ICommandDatabases handler)
+        public Migrator(ISupplyMigrations source, ICompareMigrations comparer, ICommandDatabases handler, ILocker locker)
         {
             _source = source;
             _comparer = comparer;
             _handler = handler;
+            _locker = locker;
+        }
+
+        public Migrator(ISupplyMigrations source, ICompareMigrations comparer, ICommandDatabases handler) 
+            : this(source, comparer, handler, new NullLocker())
+        {
         }
 
         public void Migrate()
         {
-            DatabaseVersion current = _handler.CurrentVersion();
-            IEnumerable<Migration> migrations = null;
-            switch (current.Type)
+            try
             {
-                case DatabaseVersionType.NotCreated:
-                     _handler.Create();
-                    migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
-                    break;
-                case DatabaseVersionType.MissingMigrationHistoryTable:
-                     _handler.CreateMigrationHistoryTable();
-                    migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
-                    break;
-                default:
-                    migrations =  _source.LoadMigrations().Where(m => _comparer.IsMigrationAfterVersion(m, current.Number)).OrderBy(m => m, _comparer);
-                    break;
-            }
+                _locker.Lock();
 
-            foreach (var migration in migrations.ToList())
+                DatabaseVersion current = _handler.CurrentVersion();
+                IEnumerable<Migration> migrations = null;
+                switch (current.Type)
+                {
+                    case DatabaseVersionType.NotCreated:
+                         _handler.Create();
+                        migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
+                        break;
+                    case DatabaseVersionType.MissingMigrationHistoryTable:
+                         _handler.CreateMigrationHistoryTable();
+                        migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
+                        break;
+                    default:
+                        migrations =  _source.LoadMigrations().Where(m => _comparer.IsMigrationAfterVersion(m, current.Number)).OrderBy(m => m, _comparer);
+                        break;
+                }
+
+                foreach (var migration in migrations.ToList())
+                {
+                    _handler.ExecuteMigration(migration);
+                }
+            }
+            finally
             {
-                 _handler.ExecuteMigration(migration);
+                _locker.Release();    
             }
-
         }
     }
     internal class FileSystemSource : ISupplyMigrations
@@ -454,5 +480,5 @@ namespace SqlMigrator
             return new DatabaseVersion() { Type = DatabaseVersionType.VersionNumber, Number = version };
         }
     }
-#endregion
+    #endregion
 }
