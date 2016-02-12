@@ -73,7 +73,7 @@ namespace Integration
         [Test]
         public void create_database()
         {
-            var sqlserver = new SqlServerCommander(CreateConnection);
+            var sqlserver = new SqlServerCommander(CreateDatabaseConnection);
             database = sqlserver.Create();
             using (IDbConnection connection = CreateConnection())
             {
@@ -116,7 +116,7 @@ namespace Integration
         [Test]
         public void database_created_has_migration_history_table()
         {
-            var sqlserver = new SqlServerCommander(CreateConnection);
+            var sqlserver = new SqlServerCommander(CreateDatabaseConnection);
             database = sqlserver.Create();
             using (IDbConnection connection = CreateConnection())
             {
@@ -136,7 +136,7 @@ namespace Integration
         [Test]
         public void execute_migration()
         {
-            var sqlserver = new SqlServerCommander(CreateConnection);
+            var sqlserver = new SqlServerCommander(CreateDatabaseConnection);
             database = sqlserver.Create();
             sqlserver.ExecuteMigration(new Migration
             {
@@ -159,7 +159,7 @@ namespace Integration
         [Test]
         public void get_correct_version_number()
         {
-            var sqlserver = new SqlServerCommander(CreateConnection);
+            var sqlserver = new SqlServerCommander(CreateDatabaseConnection);
             database = sqlserver.Create();
             sqlserver.ExecuteMigration(new Migration
             {

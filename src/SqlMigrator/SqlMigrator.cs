@@ -277,14 +277,10 @@ namespace SqlMigrator
                         }
                     }
                 }
-
-
             }
-
         }
-
-       
     }
+
     internal class SqlServerCommander : ICommandDatabases
     {
         private readonly ILog _logger;
@@ -299,9 +295,10 @@ namespace SqlMigrator
         private const string CreateDatabaseTemplate = @"
             if not exists (select * from master.sys.databases where name='{0}') 
 	            create database [{0}]
-            GO
-            use [{0}]
-            GO
+            GO            
+        ";
+
+        private const string CreateHistoryTableTemplate = @"
             if not exists (select * from sys.schemas where name='MIGRATIONS')
 	            EXEC('CREATE SCHEMA MIGRATIONS ');
             GO
@@ -311,6 +308,7 @@ namespace SqlMigrator
                 end
             GO
         ";
+
         private const string ExecuteMigrationTemplate = @"
             use [{0}]
             GO
@@ -370,12 +368,14 @@ namespace SqlMigrator
             // after database be created is needed wait a moment for it to be available to connections.
             Thread.Sleep(TimeSpan.FromSeconds(5));
 
+            CreateMigrationHistoryTable();
+
             return _databaseName;
         }
 
         public void CreateMigrationHistoryTable()
         {
-            Create();
+            RunSql(ApplyTemplate(CreateHistoryTableTemplate), false);
         }
 
         private void RunSql(string sql, bool inTransaction = true, bool forceMasterDatabaseConnection = false)
@@ -432,7 +432,6 @@ namespace SqlMigrator
         }
         private string ApplyTemplate(string template, params object[] parameters)
         {
-
             if (!string.IsNullOrEmpty(template))
             {
                 return string.Format(template, parameters);
