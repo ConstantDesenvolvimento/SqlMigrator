@@ -302,7 +302,7 @@ namespace SqlMigrator
             if not exists (select * from sys.schemas where name='MIGRATIONS')
 	            EXEC('CREATE SCHEMA MIGRATIONS ');
             GO
-            if not exists (select * from sys.tables t inner join  sys.schemas s on s.schema_id=t.schema_id where t.name='log' and s.name='MIGRATIONS' ) 
+            if not exists (select * from sys.tables t inner join  sys.schemas s on s.schema_id=t.schema_id where t.name='History' and s.name='MIGRATIONS' ) 
                 begin
 	                create table migrations.History (service nvarchar(200) not null,number nvarchar(200) not null,applied datetimeoffset not null , CONSTRAINT PK_history PRIMARY KEY CLUSTERED 	(service,number	) )
                 end
@@ -310,12 +310,9 @@ namespace SqlMigrator
         ";
 
         private const string ExecuteMigrationTemplate = @"
-            use [{0}]
-            GO
             {3}
             GO
             insert into MIGRATIONS.History (service,number,applied) values ('{1}','{2}',getdate())
-
         ";
 
 
