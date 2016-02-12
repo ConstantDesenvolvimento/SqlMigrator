@@ -29,6 +29,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace SqlMigrator
 {
@@ -335,12 +336,16 @@ namespace SqlMigrator
             return database ?? GetConnectionStringDatabaseName() ?? "db_" + Guid.NewGuid().ToString("N");
         }
 
-        private IDbConnection OpenConnection()
+        private IDbConnection OpenConnection(bool forceMasterDatabaseConnection)
         {
             var connection = _connectionFactory();
             if (connection.State != ConnectionState.Open)
             {
-                connection.ConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty); ;
+                if (forceMasterDatabaseConnection)
+                {
+                    connection.ConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty);
+                }
+
                 connection.Open();
             }
             return connection;
@@ -360,7 +365,11 @@ namespace SqlMigrator
 
         public string Create()
         {
-            RunSql(ApplyTemplate(CreateDatabaseTemplate, _databaseName), false);
+            RunSql(ApplyTemplate(CreateDatabaseTemplate, _databaseName), false, true);
+
+            // after database be created is needed wait a moment for it to be available to connections.
+            Thread.Sleep(TimeSpan.FromSeconds(5));
+
             return _databaseName;
         }
 
@@ -369,9 +378,9 @@ namespace SqlMigrator
             Create();
         }
 
-        private void RunSql(string sql, bool inTransaction = true)
+        private void RunSql(string sql, bool inTransaction = true, bool forceMasterDatabaseConnection = false)
         {
-            using (var connection = OpenConnection())
+            using (var connection = OpenConnection(forceMasterDatabaseConnection))
             {
                 if (inTransaction)
                 {
@@ -385,8 +394,6 @@ namespace SqlMigrator
                 {
                     ExecuteCommands(sql, connection, null);
                 }
-
-
             }
         }
 
@@ -407,9 +414,9 @@ namespace SqlMigrator
             }
         }
 
-        private T ExecuteScalar<T>(string sql)
+        private T ExecuteScalar<T>(string sql, bool forceMasterDatabase = false)
         {
-            using (var connection = OpenConnection())
+            using (var connection = OpenConnection(forceMasterDatabase))
             {
                 if (connection.State != ConnectionState.Open)
                 {
@@ -467,7 +474,7 @@ namespace SqlMigrator
             {
                     
                 _logger.Debug("got an exception while trying to retrieve the last applied migration number {@exception}", ex);
-                if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName)) == 0)
+                if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName), true) == 0)
                 {
                     return new DatabaseVersion() { Type = DatabaseVersionType.NotCreated };
                 }

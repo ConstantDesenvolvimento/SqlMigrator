@@ -21,8 +21,13 @@ namespace Integration
                     using (IDbCommand cmd = connection.CreateCommand())
                     {
                         cmd.CommandText =
-                            string.Format("if exists (select * from sys.databases where name='{0}') drop database {0}",
-                                database);
+                            string.Format(@"
+                            if exists (select * from sys.databases where name='{0}') 
+                            BEGIN 
+                                ALTER DATABASE {0} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; 
+                                drop database {0};
+                            END", database);
+
                         cmd.ExecuteNonQuery();
                     }
                 }
