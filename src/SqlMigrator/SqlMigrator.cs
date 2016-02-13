@@ -29,6 +29,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace SqlMigrator
 {
@@ -276,14 +277,10 @@ namespace SqlMigrator
                         }
                     }
                 }
-
-
             }
-
         }
-
-       
     }
+
     internal class SqlServerCommander : ICommandDatabases
     {
         private readonly ILog _logger;
@@ -298,25 +295,24 @@ namespace SqlMigrator
         private const string CreateDatabaseTemplate = @"
             if not exists (select * from master.sys.databases where name='{0}') 
 	            create database [{0}]
-            GO
-            use [{0}]
-            GO
+            GO            
+        ";
+
+        private const string CreateHistoryTableTemplate = @"
             if not exists (select * from sys.schemas where name='MIGRATIONS')
 	            EXEC('CREATE SCHEMA MIGRATIONS ');
             GO
-            if not exists (select * from sys.tables t inner join  sys.schemas s on s.schema_id=t.schema_id where t.name='log' and s.name='MIGRATIONS' ) 
+            if not exists (select * from sys.tables t inner join  sys.schemas s on s.schema_id=t.schema_id where t.name='History' and s.name='MIGRATIONS' ) 
                 begin
 	                create table migrations.History (service nvarchar(200) not null,number nvarchar(200) not null,applied datetimeoffset not null , CONSTRAINT PK_history PRIMARY KEY CLUSTERED 	(service,number	) )
                 end
             GO
         ";
+
         private const string ExecuteMigrationTemplate = @"
-            use [{0}]
-            GO
             {3}
             GO
             insert into MIGRATIONS.History (service,number,applied) values ('{1}','{2}',getdate())
-
         ";
 
 
@@ -335,12 +331,16 @@ namespace SqlMigrator
             return database ?? GetConnectionStringDatabaseName() ?? "db_" + Guid.NewGuid().ToString("N");
         }
 
-        private IDbConnection OpenConnection()
+        private IDbConnection OpenConnection(bool forceMasterDatabaseConnection)
         {
             var connection = _connectionFactory();
             if (connection.State != ConnectionState.Open)
             {
-                connection.ConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty); ;
+                if (forceMasterDatabaseConnection)
+                {
+                    connection.ConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty);
+                }
+
                 connection.Open();
             }
             return connection;
@@ -360,18 +360,24 @@ namespace SqlMigrator
 
         public string Create()
         {
-            RunSql(ApplyTemplate(CreateDatabaseTemplate, _databaseName), false);
+            RunSql(ApplyTemplate(CreateDatabaseTemplate, _databaseName), false, true);
+
+            // after database be created is needed wait a moment for it to be available to connections.
+            Thread.Sleep(TimeSpan.FromSeconds(5));
+
+            CreateMigrationHistoryTable();
+
             return _databaseName;
         }
 
         public void CreateMigrationHistoryTable()
         {
-            Create();
+            RunSql(ApplyTemplate(CreateHistoryTableTemplate), false);
         }
 
-        private void RunSql(string sql, bool inTransaction = true)
+        private void RunSql(string sql, bool inTransaction = true, bool forceMasterDatabaseConnection = false)
         {
-            using (var connection = OpenConnection())
+            using (var connection = OpenConnection(forceMasterDatabaseConnection))
             {
                 if (inTransaction)
                 {
@@ -385,8 +391,6 @@ namespace SqlMigrator
                 {
                     ExecuteCommands(sql, connection, null);
                 }
-
-
             }
         }
 
@@ -407,9 +411,9 @@ namespace SqlMigrator
             }
         }
 
-        private T ExecuteScalar<T>(string sql)
+        private T ExecuteScalar<T>(string sql, bool forceMasterDatabase = false)
         {
-            using (var connection = OpenConnection())
+            using (var connection = OpenConnection(forceMasterDatabase))
             {
                 if (connection.State != ConnectionState.Open)
                 {
@@ -425,7 +429,6 @@ namespace SqlMigrator
         }
         private string ApplyTemplate(string template, params object[] parameters)
         {
-
             if (!string.IsNullOrEmpty(template))
             {
                 return string.Format(template, parameters);
@@ -467,7 +470,7 @@ namespace SqlMigrator
             {
                     
                 _logger.Debug("got an exception while trying to retrieve the last applied migration number {@exception}", ex);
-                if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName)) == 0)
+                if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName), true) == 0)
                 {
                     return new DatabaseVersion() { Type = DatabaseVersionType.NotCreated };
                 }

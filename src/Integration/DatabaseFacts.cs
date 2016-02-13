@@ -21,8 +21,13 @@ namespace Integration
                     using (IDbCommand cmd = connection.CreateCommand())
                     {
                         cmd.CommandText =
-                            string.Format("if exists (select * from sys.databases where name='{0}') drop database {0}",
-                                database);
+                            string.Format(@"
+                            if exists (select * from sys.databases where name='{0}') 
+                            BEGIN 
+                                ALTER DATABASE {0} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; 
+                                drop database {0};
+                            END", database);
+
                         cmd.ExecuteNonQuery();
                     }
                 }
@@ -68,7 +73,7 @@ namespace Integration
         [Test]
         public void create_database()
         {
-            var sqlserver = new SqlServerCommander(CreateConnection);
+            var sqlserver = new SqlServerCommander(CreateDatabaseConnection);
             database = sqlserver.Create();
             using (IDbConnection connection = CreateConnection())
             {
@@ -111,7 +116,7 @@ namespace Integration
         [Test]
         public void database_created_has_migration_history_table()
         {
-            var sqlserver = new SqlServerCommander(CreateConnection);
+            var sqlserver = new SqlServerCommander(CreateDatabaseConnection);
             database = sqlserver.Create();
             using (IDbConnection connection = CreateConnection())
             {
@@ -131,7 +136,7 @@ namespace Integration
         [Test]
         public void execute_migration()
         {
-            var sqlserver = new SqlServerCommander(CreateConnection);
+            var sqlserver = new SqlServerCommander(CreateDatabaseConnection);
             database = sqlserver.Create();
             sqlserver.ExecuteMigration(new Migration
             {
@@ -154,7 +159,7 @@ namespace Integration
         [Test]
         public void get_correct_version_number()
         {
-            var sqlserver = new SqlServerCommander(CreateConnection);
+            var sqlserver = new SqlServerCommander(CreateDatabaseConnection);
             database = sqlserver.Create();
             sqlserver.ExecuteMigration(new Migration
             {
