@@ -39,8 +39,8 @@ namespace UnitTests.Facts
         private static Mock<ILocker> SetupLocker()
         {
             var locker = new Mock<ILocker>();
-            locker.Setup(x => x.Lock());
-            locker.Setup(x => x.Release());
+            locker.Setup(x => x.Lock()).Returns(new object());
+            locker.Setup(x => x.Release(It.IsAny<object>()));
             return locker;
         }
 
@@ -133,7 +133,7 @@ namespace UnitTests.Facts
               
                 locker.Setup(x => x.Lock()).InSequence(Times.Exactly(1));
                 handler.Setup(x => x.ExecuteMigration(It.IsAny<Migration>())).InSequence(Times.Exactly(2));
-                locker.Setup(x => x.Release()).InSequence(Times.Exactly(1));
+                locker.Setup(x => x.Release(It.IsAny<object>())).InSequence(Times.Exactly(1));
                 
                 var migrator = new Migrator(source.Object, comparer.Object, handler.Object, locker.Object);
                 migrator.Migrate();

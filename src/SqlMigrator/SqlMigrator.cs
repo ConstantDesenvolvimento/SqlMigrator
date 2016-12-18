@@ -82,8 +82,8 @@ namespace SqlMigrator
     }
     internal interface ILocker
     {
-        void Lock();
-        void Release();
+        object Lock();
+        void Release(object @lock);
     }
     #endregion
 
@@ -107,12 +107,14 @@ namespace SqlMigrator
     }
     internal class NullLocker : ILocker
     {
-        public void Lock()
+        public object Lock()
         {
+            return null;
         }
 
-        public void Release()
+        public void Release(object @lock)
         {
+            
         }
     }
     internal class NumberComparer : ICompareMigrations
@@ -187,35 +189,38 @@ namespace SqlMigrator
 
         public void Migrate()
         {
+            var @lock = _locker.Lock();
             try
             {
-                _locker.Lock();
-
-                DatabaseVersion current = _handler.CurrentVersion();
-                IEnumerable<Migration> migrations = null;
-                switch (current.Type)
+                if (@lock != null)
                 {
-                    case DatabaseVersionType.NotCreated:
-                         _handler.Create();
-                        migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
-                        break;
-                    case DatabaseVersionType.MissingMigrationHistoryTable:
-                         _handler.CreateMigrationHistoryTable();
-                        migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
-                        break;
-                    default:
-                        migrations =  _source.LoadMigrations().Where(m => _comparer.IsMigrationAfterVersion(m, current.Number)).OrderBy(m => m, _comparer);
-                        break;
-                }
+                    DatabaseVersion current = _handler.CurrentVersion();
+                    IEnumerable<Migration> migrations = null;
+                    switch (current.Type)
+                    {
+                        case DatabaseVersionType.NotCreated:
+                            _handler.Create();
+                            migrations = _source.LoadMigrations().OrderBy(m => m, _comparer);
+                            break;
+                        case DatabaseVersionType.MissingMigrationHistoryTable:
+                            _handler.CreateMigrationHistoryTable();
+                            migrations = _source.LoadMigrations().OrderBy(m => m, _comparer);
+                            break;
+                        default:
+                            migrations = _source.LoadMigrations().Where(m => _comparer.IsMigrationAfterVersion(m, current.Number)).OrderBy(m => m, _comparer);
+                            break;
+                    }
 
-                foreach (var migration in migrations.ToList())
-                {
-                    _handler.ExecuteMigration(migration);
+                    foreach (var migration in migrations.ToList())
+                    {
+                        _handler.ExecuteMigration(migration);
+                    }
                 }
+                
             }
             finally
             {
-                _locker.Release();    
+                _locker.Release(@lock);    
             }
         }
     }
