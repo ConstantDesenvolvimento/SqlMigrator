@@ -29,7 +29,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
-
+using System.Threading;
 
 namespace SqlMigrator
 {
@@ -44,7 +44,6 @@ namespace SqlMigrator
         public string Number { get; set; }
         public string Sql { get; set; }
     }
-
     internal enum DatabaseVersionType
     {
         NotCreated,
@@ -52,6 +51,7 @@ namespace SqlMigrator
         VersionNumber
     }
     #endregion
+
     #region Services
     internal interface ISupplyMigrations
     {
@@ -74,19 +74,21 @@ namespace SqlMigrator
         void ExecuteMigration(Migration migration);
         DatabaseVersion CurrentVersion();
     }
-
     internal interface ILog
     {
         void Info(string message,params object[] parameters);
         void Debug(string message,params object[] parameters);
         void Error(string message,params object[] parameters);
-
     }
-
+    internal interface ILocker
+    {
+        void Lock();
+        void Release();
+    }
     #endregion
-#region ServiceImplementation
 
-    internal class NullLogger:ILog
+    #region ServiceImplementation
+    internal class NullLogger : ILog
     {
         public void Info(string message, params object[] parameters)
         {
@@ -101,6 +103,16 @@ namespace SqlMigrator
         public void Error(string message, params object[] parameters)
         {
            
+        }
+    }
+    internal class NullLocker : ILocker
+    {
+        public void Lock()
+        {
+        }
+
+        public void Release()
+        {
         }
     }
     internal class NumberComparer : ICompareMigrations
@@ -157,39 +169,54 @@ namespace SqlMigrator
     {
         private readonly ICompareMigrations _comparer;
         private readonly ICommandDatabases _handler;
+        private readonly ILocker _locker;
         private readonly ISupplyMigrations _source;
 
-        public Migrator(ISupplyMigrations source, ICompareMigrations comparer, ICommandDatabases handler)
+        public Migrator(ISupplyMigrations source, ICompareMigrations comparer, ICommandDatabases handler, ILocker locker)
         {
             _source = source;
             _comparer = comparer;
             _handler = handler;
+            _locker = locker;
+        }
+
+        public Migrator(ISupplyMigrations source, ICompareMigrations comparer, ICommandDatabases handler) 
+            : this(source, comparer, handler, new NullLocker())
+        {
         }
 
         public void Migrate()
         {
-            DatabaseVersion current = _handler.CurrentVersion();
-            IEnumerable<Migration> migrations = null;
-            switch (current.Type)
+            try
             {
-                case DatabaseVersionType.NotCreated:
-                     _handler.Create();
-                    migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
-                    break;
-                case DatabaseVersionType.MissingMigrationHistoryTable:
-                     _handler.CreateMigrationHistoryTable();
-                    migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
-                    break;
-                default:
-                    migrations =  _source.LoadMigrations().Where(m => _comparer.IsMigrationAfterVersion(m, current.Number)).OrderBy(m => m, _comparer);
-                    break;
-            }
+                _locker.Lock();
 
-            foreach (var migration in migrations.ToList())
+                DatabaseVersion current = _handler.CurrentVersion();
+                IEnumerable<Migration> migrations = null;
+                switch (current.Type)
+                {
+                    case DatabaseVersionType.NotCreated:
+                         _handler.Create();
+                        migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
+                        break;
+                    case DatabaseVersionType.MissingMigrationHistoryTable:
+                         _handler.CreateMigrationHistoryTable();
+                        migrations =  _source.LoadMigrations().OrderBy(m => m, _comparer);
+                        break;
+                    default:
+                        migrations =  _source.LoadMigrations().Where(m => _comparer.IsMigrationAfterVersion(m, current.Number)).OrderBy(m => m, _comparer);
+                        break;
+                }
+
+                foreach (var migration in migrations.ToList())
+                {
+                    _handler.ExecuteMigration(migration);
+                }
+            }
+            finally
             {
-                 _handler.ExecuteMigration(migration);
+                _locker.Release();    
             }
-
         }
     }
     internal class FileSystemSource : ISupplyMigrations
@@ -250,14 +277,10 @@ namespace SqlMigrator
                         }
                     }
                 }
-
-
             }
-
         }
-
-       
     }
+
     internal class SqlServerCommander : ICommandDatabases
     {
         private readonly ILog _logger;
@@ -272,25 +295,24 @@ namespace SqlMigrator
         private const string CreateDatabaseTemplate = @"
             if not exists (select * from master.sys.databases where name='{0}') 
 	            create database [{0}]
+            GO            
+        ";
+
+        private const string CreateHistoryTableTemplate = @"
+            if not exists (select * from sys.schemas where name='MIGRATIONS')
+	            EXEC('CREATE SCHEMA MIGRATIONS ');
             GO
-            use [{0}]
-            GO
-            if not exists (select * from sys.schemas where name='migrations')
-	            EXEC('CREATE SCHEMA migrations ');
-            GO
-            if not exists (select * from sys.tables t inner join  sys.schemas s on s.schema_id=t.schema_id where t.name='log' and s.name='migrations' ) 
+            if not exists (select * from sys.tables t inner join  sys.schemas s on s.schema_id=t.schema_id where t.name='History' and s.name='MIGRATIONS' ) 
                 begin
-	                create table migrations.history (service nvarchar(200) not null,number nvarchar(200) not null,applied datetimeoffset not null , CONSTRAINT PK_history PRIMARY KEY CLUSTERED 	(service,number	) )
+	                create table migrations.History (service nvarchar(200) not null,number nvarchar(200) not null,applied datetimeoffset not null , CONSTRAINT PK_history PRIMARY KEY CLUSTERED 	(service,number	) )
                 end
             GO
         ";
+
         private const string ExecuteMigrationTemplate = @"
-            use [{0}]
-            GO
             {3}
             GO
-            insert into migrations.history (service,number,applied) values ('{1}','{2}',getdate())
-
+            insert into MIGRATIONS.History (service,number,applied) values ('{1}','{2}',getdate())
         ";
 
 
@@ -309,12 +331,16 @@ namespace SqlMigrator
             return database ?? GetConnectionStringDatabaseName() ?? "db_" + Guid.NewGuid().ToString("N");
         }
 
-        private IDbConnection OpenConnection()
+        private IDbConnection OpenConnection(bool forceMasterDatabaseConnection)
         {
             var connection = _connectionFactory();
             if (connection.State != ConnectionState.Open)
             {
-                connection.ConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty); ;
+                if (forceMasterDatabaseConnection)
+                {
+                    connection.ConnectionString = DatabaseFinder.Replace(connection.ConnectionString, string.Empty);
+                }
+
                 connection.Open();
             }
             return connection;
@@ -334,18 +360,24 @@ namespace SqlMigrator
 
         public string Create()
         {
-            RunSql(ApplyTemplate(CreateDatabaseTemplate, _databaseName), false);
+            RunSql(ApplyTemplate(CreateDatabaseTemplate, _databaseName), false, true);
+
+            // after database be created is needed wait a moment for it to be available to connections.
+            Thread.Sleep(TimeSpan.FromSeconds(5));
+
+            CreateMigrationHistoryTable();
+
             return _databaseName;
         }
 
         public void CreateMigrationHistoryTable()
         {
-            Create();
+            RunSql(ApplyTemplate(CreateHistoryTableTemplate), false);
         }
 
-        private void RunSql(string sql, bool inTransaction = true)
+        private void RunSql(string sql, bool inTransaction = true, bool forceMasterDatabaseConnection = false)
         {
-            using (var connection = OpenConnection())
+            using (var connection = OpenConnection(forceMasterDatabaseConnection))
             {
                 if (inTransaction)
                 {
@@ -359,8 +391,6 @@ namespace SqlMigrator
                 {
                     ExecuteCommands(sql, connection, null);
                 }
-
-
             }
         }
 
@@ -381,9 +411,9 @@ namespace SqlMigrator
             }
         }
 
-        private T ExecuteScalar<T>(string sql)
+        private T ExecuteScalar<T>(string sql, bool forceMasterDatabase = false)
         {
-            using (var connection = OpenConnection())
+            using (var connection = OpenConnection(forceMasterDatabase))
             {
                 if (connection.State != ConnectionState.Open)
                 {
@@ -399,7 +429,6 @@ namespace SqlMigrator
         }
         private string ApplyTemplate(string template, params object[] parameters)
         {
-
             if (!string.IsNullOrEmpty(template))
             {
                 return string.Format(template, parameters);
@@ -411,7 +440,15 @@ namespace SqlMigrator
         {
             if (ExecuteScalar<int>(string.Format("select count(*) from {0}.migrations.history where service='{1}' and number='{2}'", _databaseName,_service, migration.Number)) == 0)
             {
-                RunSql(ApplyTemplate(ExecuteMigrationTemplate, _databaseName,_service, migration.Number, migration.Sql));
+                try
+                {
+                    RunSql(ApplyTemplate(ExecuteMigrationTemplate, _databaseName, _service, migration.Number, migration.Sql));
+                }
+                catch (Exception)
+                {
+                    _logger.Error("Error while execute migration {migrationNumber} to database {database}.", migration.Number, _databaseName);   
+                    throw;
+                }
             }
             else
             {
@@ -433,7 +470,7 @@ namespace SqlMigrator
             {
                     
                 _logger.Debug("got an exception while trying to retrieve the last applied migration number {@exception}", ex);
-                if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName)) == 0)
+                if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName), true) == 0)
                 {
                     return new DatabaseVersion() { Type = DatabaseVersionType.NotCreated };
                 }
@@ -446,5 +483,5 @@ namespace SqlMigrator
             return new DatabaseVersion() { Type = DatabaseVersionType.VersionNumber, Number = version };
         }
     }
-#endregion
+    #endregion
 }
