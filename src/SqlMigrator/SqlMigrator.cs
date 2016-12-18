@@ -80,7 +80,7 @@ namespace SqlMigrator
         void Debug(string message,params object[] parameters);
         void Error(string message,params object[] parameters);
     }
-    internal interface ILocker
+    public interface ILocker
     {
         object Lock();
         void Release(object @lock);
