@@ -131,7 +131,7 @@ namespace UnitTests.Facts
 
                 Mock<ILocker> locker = SetupLocker();
               
-                locker.Setup(x => x.Lock()).InSequence(Times.Exactly(1));
+                locker.Setup(x => x.Lock()).InSequence(Times.Exactly(1)).Returns(new object());
                 handler.Setup(x => x.ExecuteMigration(It.IsAny<Migration>())).InSequence(Times.Exactly(2));
                 locker.Setup(x => x.Release(It.IsAny<object>())).InSequence(Times.Exactly(1));
                 

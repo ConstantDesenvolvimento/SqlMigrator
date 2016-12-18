@@ -109,7 +109,7 @@ namespace SqlMigrator
     {
         public object Lock()
         {
-            return null;
+            return new object();
         }
 
         public void Release(object @lock)
