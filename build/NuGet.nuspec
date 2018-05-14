@@ -16,7 +16,7 @@
   </metadata>
 
   <files>
-     <file src="..\src\SqlMigrator\SqlMigrator.cs.pp" target="content\App_Packages\SqlMigrator\SqlMigrator.cs.pp" />
+     <file src="..\src\SqlMigrator\SqlMigrator.cs" target="content\App_Packages\SqlMigrator\SqlMigrator.cs" />
   </files>
 
 </package>
