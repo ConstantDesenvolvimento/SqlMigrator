@@ -475,7 +475,7 @@ namespace SqlMigrator
             {
                     
                 _logger.Debug("got an exception while trying to retrieve the last applied migration number {@exception}", ex);
-                if (ExecuteScalar<int>(string.Format("select count(*) from databases where name='{0}'", _databaseName), true) == 0)
+                if (ExecuteScalar<int>(string.Format("select count(*) from sys.databases where name='{0}'", _databaseName), true) == 0)
                 {
                     return new DatabaseVersion() { Type = DatabaseVersionType.NotCreated };
                 }
