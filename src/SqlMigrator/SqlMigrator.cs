@@ -443,7 +443,7 @@ namespace SqlMigrator
 
         public void ExecuteMigration(Migration migration)
         {
-            if (ExecuteScalar<int>(string.Format("select count(*) from {0}.migrations.history where service='{1}' and number='{2}'", _databaseName,_service, migration.Number)) == 0)
+            if (ExecuteScalar<int>(string.Format("select count(*) from [{0}].migrations.history where service='{1}' and number='{2}'", _databaseName,_service, migration.Number)) == 0)
             {
                 try
                 {
@@ -475,11 +475,11 @@ namespace SqlMigrator
             {
                     
                 _logger.Debug("got an exception while trying to retrieve the last applied migration number {@exception}", ex);
-                if (ExecuteScalar<int>(string.Format("select count(*) from master.sys.databases where name='{0}'", _databaseName), true) == 0)
+                if (ExecuteScalar<int>(string.Format("select count(*) from databases where name='{0}'", _databaseName), true) == 0)
                 {
                     return new DatabaseVersion() { Type = DatabaseVersionType.NotCreated };
                 }
-                if (ExecuteScalar<int>(string.Format("select count(*) from {0}.sys.tables t inner join  {0}.sys.schemas s on s.schema_id=t.schema_id where t.name='history' and s.name='migrations' ", _databaseName)) == 0)
+                if (ExecuteScalar<int>(string.Format("select count(*) from [{0}].sys.tables t inner join  [{0}].sys.schemas s on s.schema_id=t.schema_id where t.name='history' and s.name='migrations' ", _databaseName)) == 0)
                 {
                     return new DatabaseVersion() { Type = DatabaseVersionType.MissingMigrationHistoryTable };
                 }
