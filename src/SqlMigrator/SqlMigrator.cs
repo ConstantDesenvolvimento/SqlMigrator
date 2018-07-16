@@ -469,7 +469,7 @@ namespace SqlMigrator
             try
             {
                 version =
-                ExecuteScalar<string>(string.Format("select top 1 number from {0}.migrations.history where service='{1}' order by applied desc ", _databaseName,_service));
+                ExecuteScalar<string>(string.Format("select top 1 number from [{0}].migrations.history where service='{1}' order by applied desc ", _databaseName,_service));
             }
             catch (Exception ex)
             {
